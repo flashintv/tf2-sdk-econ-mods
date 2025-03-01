@@ -512,3 +512,6 @@ game/mod_tf/cfg/*.txt
 game/mod_tf/*.txt
 game/mod_tf/*.dt
 game/*/config/*.vdf
+game/mod_tf/downloadlists/*
+game/mod_tf/media/*
+game/mod_tf/*.dmx
