@@ -1,5 +1,7 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 //
+// All economy code edits made by Grizzle (flashintv)
+// 
 // Purpose: 
 //
 //=============================================================================
@@ -1661,6 +1663,34 @@ void CPlayerInventory::SODestroyed( const CSteamID & steamIDOwner, const GCSDK::
 	SendInventoryUpdateEvent();
 }
 
+#ifdef _DEBUG
+#error Don't compile in debug mode as the client-gc communication is broken in it.
+#endif
+
+/**
+ * Cosmetics only show up on client-side, so if someone connects to your game - they won't see them.
+ * Weapons show up for both server and client.
+ * You might get console-spam complaining about non-existing items when in-game...
+ */
+void CreateAndAddEconItem(CPlayerInventory* inventory, CSharedObjectTypeCache* soCache, GameItemDefinition_t* itemDef) {
+	CEconItem* econItem = new CEconItem();
+	econItem->SetAccountID(inventory->GetOwner().GetAccountID());
+	econItem->SetDefinitionIndex(itemDef->GetDefinitionIndex());
+
+	// some items will be given the normal quality even though they are unique
+	int32 a = itemDef->GetQuality();
+	econItem->SetQuality(a == AE_NORMAL ? AE_UNIQUE : a);
+
+	econItem->SetOrigin(eEconItemOrigin::kEconItemOrigin_Drop);
+	econItem->SetItemLevel(itemDef->RollItemLevel());
+
+	// if item id is needed somewhere then just use the same id as the index to not cause discrepancy between client-server ids for now /shrug/ 
+	econItem->SetItemID(itemDef->GetDefinitionIndex());
+	econItem->SetQuantity(1);
+
+	// the main thing that makes the item exist
+	soCache->AddObject(econItem);
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: This is our initial notification that this cache has been received
@@ -1690,14 +1720,40 @@ void CPlayerInventory::SOCacheSubscribed( const CSteamID & steamIDOwner, GCSDK::
 		return;
 	}
 
+	// find the econitem socache
+	CSharedObjectTypeCache* pTypeCache = m_pSOCache->FindTypeCache(CEconItem::k_nTypeID);
+
+	// manually spawned items go in here
+	{
+		// Example (this gives "the custom weapon"):
+		// CreateAndAddEconItem(this, pTypeCache, dynamic_cast<GameItemDefinition_t*>(GetItemSchema()->GetItemDefinition(1200)));
+	}
+
+	// add all items into the player's inventory unless it's full
+	const CEconItemSchema::ItemDefinitionMap_t& mapItems = GetItemSchema()->GetItemDefinitionMap();
+	FOR_EACH_MAP_FAST(mapItems, i)
+	{
+		GameItemDefinition_t* pItemDef = dynamic_cast<GameItemDefinition_t*>(mapItems[i]);
+
+		// don't give base items (aka default knife and such)
+		if (pItemDef->IsBaseItem()) continue;
+
+		// don't go over the inventory limit, to not cause the full inventory message
+		if (pTypeCache->GetCount() >= GetMaxItemCount()) continue;
+		
+		// try to filter out non-items
+		if (!pItemDef->ShouldShowInArmory() && !pItemDef->IsAWearable()) continue;
+
+		CreateAndAddEconItem(this, pTypeCache, pItemDef);
+	}
+
 	// add all the items already in the inventory
-	CSharedObjectTypeCache *pTypeCache = m_pSOCache->FindTypeCache( CEconItem::k_nTypeID );
 	if( pTypeCache )
 	{
 		for( uint32 unItem = 0; unItem < pTypeCache->GetCount(); unItem++ )
 		{
 			CEconItem *pItem = (CEconItem *)pTypeCache->GetObject( unItem );
-			AddEconItem(pItem, true, false, true );
+			AddEconItem(pItem, true, false, true);
 		}
 	}
 
@@ -1722,6 +1778,17 @@ void CPlayerInventory::SOCacheSubscribed( const CSteamID & steamIDOwner, GCSDK::
 	{
 		InventoryManager()->CleanAckFile();
 		InventoryManager()->SaveAckFile();
+	}
+
+	// this fixes the items not showing up in the inventory
+	for (int i = 0; i < GetItemCount(); i++) {
+		auto* iView = GetItem(i);
+
+		// todo: check, might not be needed
+		InventoryManager()->AcknowledgeItem(iView, true);
+
+		// inventory starts from 1 not 0
+		iView->SetInventoryPosition(i + 1);
 	}
 #endif
 }

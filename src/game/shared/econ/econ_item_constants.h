@@ -460,7 +460,7 @@ typedef CUtlMap< uint32, const class CQuestDefinition* > QuestDefMap_t;
 // Standard/default backpack size
 #define DEFAULT_NUM_BACKPACK_SLOTS						300
 #define DEFAULT_NUM_BACKPACK_SLOTS_FREE_TRIAL_ACCOUNT	50
-#define MAX_NUM_BACKPACK_SLOTS							4000
+#define MAX_NUM_BACKPACK_SLOTS							5000 // updated from 4000 (80 pages) to 5000 (100 pages)
 
 // Current item level range
 #define MIN_ITEM_LEVEL					0

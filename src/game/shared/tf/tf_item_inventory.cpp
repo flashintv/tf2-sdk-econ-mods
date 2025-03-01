@@ -508,7 +508,8 @@ void CTFInventoryManager::AcknowledgeItem( CEconItemView *pItem, bool bMoveToBac
 		iMethod = 0;
 	EconUI()->Gamestats_ItemTransaction( IE_ITEM_RECEIVED, pItem, g_pszItemPickupMethodStringsUnloc[iMethod] );
 
-	if ( iMethod+1 == UNACK_ITEM_PREVIEW_ITEM_PURCHASED )
+	// if function is called before store gets initialized the game crashes, check for storepanel existance
+	if ( iMethod+1 == UNACK_ITEM_PREVIEW_ITEM_PURCHASED && EconUI()->GetStorePanel() )
 	{
 		// If we found a purchased preview item, we want to refresh the store view to remove the discount indicator.
 		CStorePage* pStorePage = dynamic_cast<CStorePage*>( EconUI()->GetStorePanel()->GetActivePage() );
@@ -1542,17 +1543,8 @@ bool CTFPlayerInventory::CanPurchaseItems( int iItemCount ) const
 //-----------------------------------------------------------------------------
 int	CTFPlayerInventory::GetMaxItemCount( void ) const
 {
-	int iMaxItems = DEFAULT_NUM_BACKPACK_SLOTS;
-	CEconGameAccountClient *pGameAccountClient = GetSOCacheGameAccountClient( m_pSOCache );
-	if ( pGameAccountClient )
-	{
-		if ( pGameAccountClient->Obj().trial_account() )
-		{
-			iMaxItems = DEFAULT_NUM_BACKPACK_SLOTS_FREE_TRIAL_ACCOUNT;
-		}
-		iMaxItems += pGameAccountClient->Obj().additional_backpack_slots();
-	}
-	return MIN( iMaxItems, MAX_NUM_BACKPACK_SLOTS );
+	// don't check for player's backpack slots, give him all available slots
+	return MAX_NUM_BACKPACK_SLOTS;
 }
 
 #ifdef CLIENT_DLL
